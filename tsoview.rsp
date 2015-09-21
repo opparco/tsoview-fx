@@ -1,0 +1,7 @@
+/platform:x86
+/lib:"\SharpDX\Bin\Desktop"
+/r:SharpDX.dll
+/r:SharpDX.D3DCompiler.dll
+/r:SharpDX.Direct3D11.dll
+/r:SharpDX.Direct3D11.Effects.dll
+/r:SharpDX.DXGI.dll
