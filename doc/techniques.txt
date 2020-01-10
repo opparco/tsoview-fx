@@ -31,6 +31,7 @@
 30	AllAmb_ShadowOff_InkOff_BHL
 31	SCROLL
 32	XYSCROLL
-33	ParaHUD
-34	ShadowOff_Front
-35	ShadowOff_InkOff_Front
+33	ShadowOff_Front
+34	ShadowOff_InkOff_Front
+35	ShadowOn_eyedotn
+36	AllAmb_ShadowOn_eyedotn

@@ -8,7 +8,7 @@
 uniform matrix	wld			: World;
 uniform	matrix	wv			: WorldView;
 uniform matrix	wvp			: WorldViewProjection;
-//uniform matrix	view			: View;
+uniform matrix	view			: View;
 uniform matrix	proj			: Projection;
 
 const uniform matrix	LocalBoneMats[16];
@@ -46,16 +46,18 @@ uniform float4 UVSCR;
 
 SamplerState ShadeTex
 {
-	Filter = MIN_MAG_MIP_LINEAR;
+	Filter = ANISOTROPIC;
 	AddressU = CLAMP;
 	AddressV = CLAMP;
+	MaxAnisotropy = 16;
 };
 
 SamplerState ColorTex
 {
-	Filter = MIN_MAG_MIP_LINEAR;
+	Filter = ANISOTROPIC;
 	AddressU = WRAP;
 	AddressV = WRAP;
+	MaxAnisotropy = 16;
 };
 
 // resources
@@ -219,19 +221,6 @@ cVertexData cMainVS_XYScroll( appdata IN )
 	return OUT;
 }
 
-cVertexData cMainVS_ParaHUD( appdata IN )
-{
-	cVertexData OUT;
-	float3 pos = IN.Position;
-	float3 nor = IN.Normal;
-
-	OUT.Position	= mul( float4( pos, 1.0f ), mul( wld, proj ) );
-	OUT.UV		= IN.UV;
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
-
-	return OUT;
-}
-
 // pixel shader
 
 // (default)
@@ -366,6 +355,65 @@ float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 );
 
 	return float4( col.rgb, shadecol.a );
+}
+
+inline	float	calc_eyedotn( float4 normal )
+{
+	float4	esnormal	=	mul( normal, view );
+	float4	eyedir		=	{0, 0, -1, 0};
+	return	max( 0.01, dot(esnormal, -eyedir) );
+}
+
+// _eyedotn
+// on DefaultState: alpha func ge
+float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
+{
+	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
+	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float	hp		 = pow( hp0, HighLightPower );
+
+	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
+	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
+	float4	hl		 = float4( hp, hp, hp, 1.0 );
+
+	float4	col;
+	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
+	col += hl * ( HighLightBlend * 0.0025 ); // old
+	//col += hl * HighLightBlend;
+
+	float	eyedotn		=	calc_eyedotn( IN.Normal );
+	float	thickness	=	1.0 / eyedotn;
+	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
+
+	clip(col.a - 0.25f); // alpha test
+	return float4( col.rgb, alpha );
+}
+
+// AllAmb_ _eyedotn
+// on DefaultState: alpha func ge
+float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
+{
+	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
+	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float	hp		 = pow( hp0, HighLightPower );
+
+	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
+	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
+	float4	hl		 = float4( hp, hp, hp, 1.0 );
+
+	float4	col;
+	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
+	col += hl * ( HighLightBlend * 0.0025 ); // old
+	//col += hl * HighLightBlend;
+
+	float	eyedotn		=	calc_eyedotn( IN.Normal );
+	float	thickness	=	1.0 / eyedotn;
+	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
+
+	clip(col.a - 0.25f); // alpha test
+	return float4( col.rgb, alpha );
 }
 
 #include "hlmap.fx"
@@ -650,7 +698,7 @@ technique10 SCROLL
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_XScroll() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
@@ -660,19 +708,7 @@ technique10 XYSCROLL
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_XYScroll() ));
-                SetGeometryShader( NULL );
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
-	}
-}
-
-technique10 ParaHUD
-{
-	pass Main
-	{
-		SetDepthStencilState( NoDepthState, 0 );
-
-		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_ParaHUD() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
@@ -685,7 +721,7 @@ technique10 ShadowOff_Front
 		SetDepthStencilState( NoDepthState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
@@ -697,7 +733,29 @@ technique10 ShadowOff_InkOff_Front
 		SetDepthStencilState( NoDepthState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
+	}
+}
+
+technique10 ShadowOn_eyedotn
+{
+#include "ink-pass.fx"
+	pass Main
+	{
+		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
+		SetGeometryShader( NULL );
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS_eyedotn() ));
+	}
+}
+
+technique10 AllAmb_ShadowOn_eyedotn
+{
+#include "ink-pass.fx"
+	pass Main
+	{
+		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
+		SetGeometryShader( NULL );
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS3_eyedotn() ));
 	}
 }
