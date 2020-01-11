@@ -92,35 +92,19 @@ struct cVertexData2
 
 void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float3 outpos, out float3 outnor )
 {
-	float4		pos, nor, tmppos, tmpnor;
-	float		w;
-	float4x4	mb;
+	float4 ipos		=	float4( position, 1 );
+	float4 inor		=	float4( normal, 0 );
 
-	pos		=	float4( position, 1 );
-	nor		=	float4( normal, 0 );
+	float4x4 mat = LocalBoneMats[idxs.x] * weights.x +
+		LocalBoneMats[idxs.y] * weights.y +
+		LocalBoneMats[idxs.z] * weights.z +
+		LocalBoneMats[idxs.w] * weights.w;
 
-	w			=	weights[0];
-	mb			=	LocalBoneMats[idxs[0]];
-	tmppos		=	mul( pos, mb ) * w;
-	tmpnor		=	mul( nor, mb ) * w;
+	float4 pos		=	mul( ipos, mat );
+	float4 nor		=	mul( inor, mat );
 
-	w			=	weights[1];
-	mb			=	LocalBoneMats[idxs[1]];
-	tmppos		+=	mul( pos, mb ) * w;
-	tmpnor		+=	mul( nor, mb ) * w;
-
-	w			=	weights[2];
-	mb			=	LocalBoneMats[idxs[2]];
-	tmppos		+=	mul( pos, mb ) * w;
-	tmpnor		+=	mul( nor, mb ) * w;
-
-	w			=	weights[3];
-	mb			=	LocalBoneMats[idxs[3]];
-	tmppos		+=	mul( pos, mb ) * w;
-	tmpnor		+=	mul( nor, mb ) * w;
-
-	outpos		=	tmppos.xyz;
-	outnor		=	tmpnor.xyz;
+	outpos		=	pos.xyz;
+	outnor		=	normalize( nor.xyz );
 }
 
 // vertex shader
