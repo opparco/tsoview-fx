@@ -1,7 +1,7 @@
 // macros
 
-#define PROFILE_VS vs_4_0
-#define PROFILE_PS ps_4_0
+#define PROFILE_VS vs_5_0
+#define PROFILE_PS ps_5_0
 
 // variables
 
@@ -472,40 +472,40 @@ RasterizerState CcwState
 
 // techniques
 
-technique10 NAT_ShadowOff
+technique11 NAT_ShadowOff
 {
 #include "ink-pass.fx"
 #include "nat-pass.fx"
 }
 
-technique10 ShadowOff
+technique11 ShadowOff
 {
 #include "ink-pass.fx"
 #include "default-pass.fx"
 }
 
-technique10 NAT_ShadowOff_InkOff
+technique11 NAT_ShadowOff_InkOff
 {
 #include "nat-pass.fx"
 }
 
-technique10 ShadowOff_InkOff
+technique11 ShadowOff_InkOff
 {
 #include "default-pass.fx"
 }
 
-technique10 NZ_ShadowOff
+technique11 NZ_ShadowOff
 {
 #include "ink-pass.fx"
 #include "nzw-pass.fx"
 }
 
-technique10 NZ_ShadowOff_InkOff
+technique11 NZ_ShadowOff_InkOff
 {
 #include "nzw-pass.fx"
 }
 
-technique10 NZAT_ShadowOff_InkOff
+technique11 NZAT_ShadowOff_InkOff
 {
 	pass Main
 	{
@@ -517,7 +517,7 @@ technique10 NZAT_ShadowOff_InkOff
 	}
 }
 
-technique10 NCZAT_ShadowOff_InkOff
+technique11 NCZAT_ShadowOff_InkOff
 {
 	pass Main
 	{
@@ -530,7 +530,7 @@ technique10 NCZAT_ShadowOff_InkOff
 	}
 }
 
-technique10 KAZAN
+technique11 KAZAN
 {
 	pass Main
 	{
@@ -543,7 +543,7 @@ technique10 KAZAN
 	}
 }
 
-technique10 AURORA
+technique11 AURORA
 {
 	pass Main
 	{
@@ -555,7 +555,7 @@ technique10 AURORA
 	}
 }
 
-technique10 WASHOUT
+technique11 WASHOUT
 {
 	pass Main
 	{
@@ -565,7 +565,7 @@ technique10 WASHOUT
 	}
 }
 
-technique10 BothSide
+technique11 BothSide
 {
 #include "backink-pass.fx"
 #include "ink-pass.fx"
@@ -573,13 +573,13 @@ technique10 BothSide
 #include "default-pass.fx"
 }
 
-technique10 BothSide_InkOff
+technique11 BothSide_InkOff
 {
 #include "counter-pass.fx"
 #include "default-pass.fx"
 }
 
-technique10 AllAmb_BothSide
+technique11 AllAmb_BothSide
 {
 #include "backink-pass.fx"
 #include "ink-pass.fx"
@@ -587,113 +587,113 @@ technique10 AllAmb_BothSide
 #include "amb-pass.fx"
 }
 
-technique10 AllAmb_BothSide_InkOff
+technique11 AllAmb_BothSide_InkOff
 {
 #include "counter-amb-pass.fx"
 #include "amb-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff
+technique11 NAT_AllAmb_ShadowOff
 {
 #include "ink-pass.fx"
 #include "nat-amb-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff_InkOff
+technique11 NAT_AllAmb_ShadowOff_InkOff
 {
 #include "nat-amb-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff
+technique11 AllAmb_ShadowOff
 {
 #include "ink-pass.fx"
 #include "amb-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff_InkOff
+technique11 AllAmb_ShadowOff_InkOff
 {
 #include "amb-pass.fx"
 }
 
-technique10 NAT_ShadowOff_BL
+technique11 NAT_ShadowOff_BL
 {
 #include "ink-pass.fx"
 #include "nat-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 NAT_ShadowOff_InkOff_BL
+technique11 NAT_ShadowOff_InkOff_BL
 {
 #include "nat-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 ShadowOff_BL
+technique11 ShadowOff_BL
 {
 #include "ink-pass.fx"
 #include "default-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 ShadowOff_InkOff_BL
+technique11 ShadowOff_InkOff_BL
 {
 #include "default-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff_BL
+technique11 NAT_AllAmb_ShadowOff_BL
 {
 #include "ink-pass.fx"
 #include "nat-amb-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff_InkOff_BL
+technique11 NAT_AllAmb_ShadowOff_InkOff_BL
 {
 #include "nat-amb-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff_BL
+technique11 AllAmb_ShadowOff_BL
 {
 #include "ink-pass.fx"
 #include "amb-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff_InkOff_BL
+technique11 AllAmb_ShadowOff_InkOff_BL
 {
 #include "amb-pass.fx"
 #include "hlmap-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff_BHL
+technique11 NAT_AllAmb_ShadowOff_BHL
 {
 #include "ink-pass.fx"
 #include "nat-amb-pass.fx"
 #include "bhl-pass.fx"
 }
 
-technique10 NAT_AllAmb_ShadowOff_InkOff_BHL
+technique11 NAT_AllAmb_ShadowOff_InkOff_BHL
 {
 #include "nat-amb-pass.fx"
 #include "bhl-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff_BHL
+technique11 AllAmb_ShadowOff_BHL
 {
 #include "ink-pass.fx"
 #include "amb-pass.fx"
 #include "bhl-pass.fx"
 }
 
-technique10 AllAmb_ShadowOff_InkOff_BHL
+technique11 AllAmb_ShadowOff_InkOff_BHL
 {
 #include "amb-pass.fx"
 #include "bhl-pass.fx"
 }
 
-technique10 SCROLL
+technique11 SCROLL
 {
 	pass Main
 	{
@@ -703,7 +703,7 @@ technique10 SCROLL
 	}
 }
 
-technique10 XYSCROLL
+technique11 XYSCROLL
 {
 	pass Main
 	{
@@ -713,7 +713,7 @@ technique10 XYSCROLL
 	}
 }
 
-technique10 ShadowOff_Front
+technique11 ShadowOff_Front
 {
 #include "ink-pass.fx"
 	pass Main
@@ -726,7 +726,7 @@ technique10 ShadowOff_Front
 	}
 }
 
-technique10 ShadowOff_InkOff_Front
+technique11 ShadowOff_InkOff_Front
 {
 	pass Main
 	{
@@ -738,7 +738,7 @@ technique10 ShadowOff_InkOff_Front
 	}
 }
 
-technique10 ShadowOn_eyedotn
+technique11 ShadowOn_eyedotn
 {
 #include "ink-pass.fx"
 	pass Main
@@ -749,7 +749,7 @@ technique10 ShadowOn_eyedotn
 	}
 }
 
-technique10 AllAmb_ShadowOn_eyedotn
+technique11 AllAmb_ShadowOn_eyedotn
 {
 #include "ink-pass.fx"
 	pass Main
