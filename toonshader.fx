@@ -1,6 +1,8 @@
 // macros
 
 #define PROFILE_VS vs_5_0
+#define PROFILE_HS hs_5_0
+#define PROFILE_DS ds_5_0
 #define PROFILE_PS ps_5_0
 
 // variables
@@ -203,6 +205,135 @@ cVertexData cMainVS_XYScroll( appdata IN )
 	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
 
 	return OUT;
+}
+
+// hull shader
+
+struct PatchTess
+{
+    float EdgeTess[3] : SV_TessFactor;
+    float InsideTess : SV_InsideTessFactor;
+};
+
+PatchTess PatchHS(InputPatch<cVertexData, 3> patch,
+                  uint patchID : SV_PrimitiveID)
+{
+    PatchTess pt;
+	
+	// Average tess factors along edges, and pick an edge tess factor for 
+	// the interior tessellation.  It is important to do the tess factor
+	// calculation based on the edge properties so that edges shared by 
+	// more than one triangle will have the same tessellation factor.  
+	// Otherwise, gaps can appear.
+    pt.EdgeTess[0] = 2.0f;//0.5f * (patch[1].TessFactor + patch[2].TessFactor);
+    pt.EdgeTess[1] = 2.0f;//0.5f * (patch[2].TessFactor + patch[0].TessFactor);
+    pt.EdgeTess[2] = 2.0f;//0.5f * (patch[0].TessFactor + patch[1].TessFactor);
+    pt.InsideTess = pt.EdgeTess[0];
+	
+    return pt;
+}
+
+PatchTess PatchInkHS(InputPatch<cVertexData2, 3> patch,
+                  uint patchID : SV_PrimitiveID)
+{
+    PatchTess pt;
+	
+	// Average tess factors along edges, and pick an edge tess factor for 
+	// the interior tessellation.  It is important to do the tess factor
+	// calculation based on the edge properties so that edges shared by 
+	// more than one triangle will have the same tessellation factor.  
+	// Otherwise, gaps can appear.
+    pt.EdgeTess[0] = 2.0f;//0.5f * (patch[1].TessFactor + patch[2].TessFactor);
+    pt.EdgeTess[1] = 2.0f;//0.5f * (patch[2].TessFactor + patch[0].TessFactor);
+    pt.EdgeTess[2] = 2.0f;//0.5f * (patch[0].TessFactor + patch[1].TessFactor);
+    pt.InsideTess = pt.EdgeTess[0];
+	
+    return pt;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchHS")]
+cVertexData cMainHS(InputPatch<cVertexData, 3> p,
+           uint i : SV_OutputControlPointID,
+           uint patchId : SV_PrimitiveID)
+{
+    cVertexData hout;
+	
+	// Pass through shader.
+    hout.Position = p[i].Position;
+    hout.Normal = p[i].Normal;
+    hout.UV = p[i].UV;
+	
+    return hout;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_ccw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchInkHS")]
+cVertexData2 cInkHS(InputPatch<cVertexData2, 3> p,
+           uint i : SV_OutputControlPointID,
+           uint patchId : SV_PrimitiveID)
+{
+    cVertexData2 hout;
+	
+	// Pass through shader.
+    hout.Position = p[i].Position;
+	
+    return hout;
+}
+
+// domain shader
+
+// The domain shader is called for every vertex created by the tessellator.  
+// It is like the vertex shader after tessellation.
+[domain("tri")]
+cVertexData cMainDS(PatchTess patchTess,
+             float3 bary : SV_DomainLocation,
+             const OutputPatch<cVertexData, 3> tri)
+{
+    cVertexData dout;
+	
+	// Interpolate patch attributes to generated vertices.
+    dout.Position =
+		bary.x * tri[0].Position +
+		bary.y * tri[1].Position +
+		bary.z * tri[2].Position;
+
+    dout.Normal =
+		bary.x * tri[0].Normal +
+		bary.y * tri[1].Normal +
+		bary.z * tri[2].Normal;
+
+    dout.UV =
+		bary.x * tri[0].UV +
+		bary.y * tri[1].UV +
+		bary.z * tri[2].UV;
+	
+	// Interpolating normal can unnormalize it, so normalize it.
+    dout.Normal = normalize(dout.Normal);
+	
+    return dout;
+}
+
+[domain("tri")]
+cVertexData2 cInkDS(PatchTess patchTess,
+             float3 bary : SV_DomainLocation,
+             const OutputPatch<cVertexData2, 3> tri)
+{
+    cVertexData2 dout;
+	
+	// Interpolate patch attributes to generated vertices.
+    dout.Position =
+		bary.x * tri[0].Position +
+		bary.y * tri[1].Position +
+		bary.z * tri[2].Position;
+
+    return dout;
 }
 
 // pixel shader
@@ -446,12 +577,12 @@ DepthStencilState NoDepthWriteState
 
 RasterizerState NoCullingState
 {
-	CullMode = NONE;
+	CullMode = none;
 };
 
 RasterizerState CcwState
 {
-	FrontCounterClockwise = FALSE;
+	FrontCounterClockwise = false;
 };
 
 // techniques
@@ -728,6 +859,8 @@ technique11 ShadowOn_eyedotn
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
+		SetHullShader(CompileShader( PROFILE_HS, cMainHS() ));
+		SetDomainShader(CompileShader( PROFILE_DS, cMainDS() ));
 		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS_eyedotn() ));
 	}
@@ -739,6 +872,8 @@ technique11 AllAmb_ShadowOn_eyedotn
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
+		SetHullShader(CompileShader( PROFILE_HS, cMainHS() ));
+		SetDomainShader(CompileShader( PROFILE_DS, cMainDS() ));
 		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS3_eyedotn() ));
 	}
