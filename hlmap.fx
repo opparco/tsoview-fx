@@ -19,12 +19,12 @@ struct cHLMapData
 cHLMapData	cHLMapVSB( appdata IN )
 {
 	cHLMapData	OUT;
-	float3	pos;
+	float4	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position		=	mul( float4( pos, 1.0f ), wvp );
+	OUT.Position		=	mul( pos, wvp );
 
 	float4 N		=	normalize( mul(float4(nor.x,-nor.y,nor.z,0), wld) );
 	float4 LightDirect	=	normalize( mul(float4(nor.x,+nor.y,nor.z,0), wvp) );
@@ -37,12 +37,12 @@ cHLMapData	cHLMapVSB( appdata IN )
 cHLMapData	cHLMapVSF( appdata IN )
 {
 	cHLMapData	OUT;
-	float3	pos;
+	float4	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position		=	mul( float4( pos, 1.0f ), wvp );
+	OUT.Position		=	mul( pos, wvp );
 
 	float4	N		=	normalize( mul(float4(nor.x,-nor.y,nor.z,0), wld) );
 	float4	LightDirect	=	normalize( mul(float4(nor.x,+nor.y,nor.z,0), wvp) );

@@ -82,7 +82,7 @@ struct cVertexData
 {
 	float4	Position	: SV_POSITION;
 	float2	UV			: TEXCOORD0;
-	float4	Normal		: TEXCOORD1;
+	float3	Normal		: TEXCOORD1;
 };
 
 struct cVertexData2
@@ -92,7 +92,7 @@ struct cVertexData2
 
 // functions
 
-void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float3 outpos, out float3 outnor )
+void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float4 outpos, out float3 outnor )
 {
 	float4 ipos		=	float4( position, 1 );
 	float4 inor		=	float4( normal, 0 );
@@ -105,63 +105,22 @@ void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs,
 	float4 pos		=	mul( ipos, mat );
 	float4 nor		=	mul( inor, mat );
 
-	outpos		=	pos.xyz;
+	outpos		=	float4( pos.xyz, 1 );
 	outnor		=	normalize( nor.xyz );
 }
 
 // vertex shader
 
-cVertexData cMainVS( appdata IN )
-{
-	cVertexData OUT;
-	float3 pos, nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-	OUT.Position	= mul( float4( pos, 1.0f ), wvp );
-	OUT.UV		= IN.UV;
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
-
-	return OUT;
-}
-
-cVertexData cMainVS_viewnormal( appdata IN )
-{
-	cVertexData OUT;
-	float3 pos, nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-	OUT.Position	= mul( float4( pos, 1.0f ), wvp );
-	OUT.UV		= IN.UV;
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wv ) );
-
-	return OUT;
-}
-
-cVertexData cMainVS_UVSCR( appdata IN )
-{
-	cVertexData OUT;
-	float3 pos, nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-	OUT.Position	= mul( float4( pos, 1.0f ), wvp );
-	OUT.UV		= IN.UV + UVSCR.xy;
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
-
-	return OUT;
-}
-
 cVertexData2 cInkVS( appdata IN )
 {
 	cVertexData2 OUT;
-	float3 pos, nor;
+	float4	pos;
+	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	pos = pos + ( normalize( nor ) * Thickness );
-	OUT.Position = mul( float4( pos, 1.0f ), wvp );
+	pos = float4( pos.xyz + ( nor * Thickness ), 1 );
+	OUT.Position = mul( pos, wvp );
 
 	return OUT;
 }
@@ -169,12 +128,59 @@ cVertexData2 cInkVS( appdata IN )
 cVertexData2 cBackInkVS( appdata IN )
 {
 	cVertexData2 OUT;
-	float3 pos, nor;
+	float4	pos;
+	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	pos = pos + ( normalize( nor ) *-Thickness );
-	OUT.Position = mul( float4( pos, 1.0f ), wvp );
+	pos = float4( pos.xyz + ( nor *-Thickness ), 1 );
+	OUT.Position = mul( pos, wvp );
+
+	return OUT;
+}
+
+cVertexData cMainVS( appdata IN )
+{
+	cVertexData OUT;
+	float4	pos;
+	float3	nor;
+
+	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
+
+	OUT.Position	= mul( pos, wvp );
+	OUT.UV		= IN.UV;
+	OUT.Normal	= nor;
+
+	return OUT;
+}
+
+cVertexData cMainVS_viewnormal( appdata IN )
+{
+	cVertexData OUT;
+	float4	pos;
+	float3	nor;
+
+	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
+
+	OUT.Position	= mul( pos, wvp );
+	OUT.UV		= IN.UV;
+	// TODO: ViewNormal
+	OUT.Normal	= normalize( mul( float4( nor, 0 ), view ).xyz );
+
+	return OUT;
+}
+
+cVertexData cMainVS_UVSCR( appdata IN )
+{
+	cVertexData OUT;
+	float4	pos;
+	float3	nor;
+
+	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
+
+	OUT.Position	= mul( pos, wvp );
+	OUT.UV		= IN.UV + UVSCR.xy;
+	OUT.Normal	= nor;
 
 	return OUT;
 }
@@ -182,13 +188,14 @@ cVertexData2 cBackInkVS( appdata IN )
 cVertexData cMainVS_XScroll( appdata IN )
 {
 	cVertexData OUT;
-	float3 pos, nor;
+	float4	pos;
+	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( float4( pos, 1.0f ), wvp );
+	OUT.Position	= mul( pos, wvp );
 	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScroll, 0 );
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
+	OUT.Normal	= nor;
 
 	return OUT;
 }
@@ -196,13 +203,14 @@ cVertexData cMainVS_XScroll( appdata IN )
 cVertexData cMainVS_XYScroll( appdata IN )
 {
 	cVertexData OUT;
-	float3 pos, nor;
+	float4	pos;
+	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( float4( pos, 1.0f ), wvp );
+	OUT.Position	= mul( pos, wvp );
 	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScrollX, UVScrollY );
-	OUT.Normal	= normalize( mul( float4( nor, 0.0f ), wld ) );
+	OUT.Normal	= nor;
 
 	return OUT;
 }
@@ -342,7 +350,7 @@ cVertexData2 cInkDS(PatchTess patchTess,
 // on DefaultState: alpha func ge
 float4 cMainPS( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -364,7 +372,7 @@ float4 cMainPS( cVertexData IN ) : SV_TARGET
 // on NatState: alpha func always
 float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -385,7 +393,7 @@ float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
 // on DefaultState: alpha func ge
 float4 cMainPS3( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -407,7 +415,7 @@ float4 cMainPS3( cVertexData IN ) : SV_TARGET
 // on NatState: alpha func always
 float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -435,12 +443,12 @@ float4 cInkPS( cVertexData2 IN ) : SV_TARGET
 // on NatState: alpha func always
 float4 cBHLMainPS_viewnormal( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	//float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	//float	hp		 = pow( hp0, HighLightPower );
 
-	float	L2		 = dot( IN.Normal, float4(0,0,1,0) );
+	float	L2		 = dot( float4( IN.Normal, 0 ), float4(0,0,1,0) );
 	float	lp2		 = min( 1.0, max( 0.0, ( L2 * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	//float	hp02		 = min( 1.0, max( 0.0, ( L2 * 0.708 ) + ( HighLight * 0.01 ) ) );
 	//float	hp2		 = pow( hp02, HighLightPower );
@@ -456,7 +464,7 @@ float4 cBHLMainPS_viewnormal( cVertexData IN ) : SV_TARGET
 // on NatState: alpha func always
 float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
 {
-	float	L		=	dot( IN.Normal, float4(0,0,1,0) );
+	float	L		=	dot( float4( IN.Normal, 0 ), float4(0,0,1,0) );
 	float	lp		=	min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		=	min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		=	pow( hp0, HighLightPower );
@@ -483,7 +491,7 @@ inline	float	calc_eyedotn( float4 normal )
 // on DefaultState: alpha func ge
 float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -497,7 +505,7 @@ float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 ); // old
 	//col += hl * HighLightBlend;
 
-	float	eyedotn		=	calc_eyedotn( IN.Normal );
+	float	eyedotn		=	calc_eyedotn( float4( IN.Normal, 0 ) );
 	float	thickness	=	1.0 / eyedotn;
 	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
 
@@ -509,7 +517,7 @@ float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 // on DefaultState: alpha func ge
 float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( IN.Normal, -LightDirForced );
+	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
 	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
 	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
 	float	hp		 = pow( hp0, HighLightPower );
@@ -523,7 +531,7 @@ float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 ); // old
 	//col += hl * HighLightBlend;
 
-	float	eyedotn		=	calc_eyedotn( IN.Normal );
+	float	eyedotn		=	calc_eyedotn( float4( IN.Normal, 0 ) );
 	float	thickness	=	1.0 / eyedotn;
 	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
 
