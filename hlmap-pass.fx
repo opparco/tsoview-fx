@@ -4,7 +4,7 @@
 		//SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cHLMapVSB() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cHLMapPS() ));
 	}
 	pass Pass1
@@ -13,6 +13,6 @@
 		//SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cHLMapVSF() ));
-                SetGeometryShader( NULL );
+		SetGeometryShader( NULL );
 		SetPixelShader(CompileShader( PROFILE_PS, cHLMapPS() ));
 	}

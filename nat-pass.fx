@@ -1,6 +1,6 @@
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-                SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
 	}

@@ -3,6 +3,6 @@
 		SetRasterizerState( CcwState );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-                SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS3() ));
 	}

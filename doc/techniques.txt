@@ -29,9 +29,7 @@
 28	NAT_AllAmb_ShadowOff_InkOff_BHL
 29	AllAmb_ShadowOff_BHL
 30	AllAmb_ShadowOff_InkOff_BHL
-31	SCROLL
-32	XYSCROLL
-33	ShadowOff_Front
-34	ShadowOff_InkOff_Front
-35	ShadowOn_eyedotn
-36	AllAmb_ShadowOn_eyedotn
+31	ShadowOff_Front
+32	ShadowOff_InkOff_Front
+33	ShadowOn_eyedotn
+34	AllAmb_ShadowOn_eyedotn

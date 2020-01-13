@@ -22,3 +22,7 @@ AllAmb_ShadowOff_BL	AllAmb_ShadowOn_BL
 AllAmb_ShadowOff_InkOff_BL	AllAmb_ShadowOn_InkOff_BL
 ShadowOff_Front	ShadowOn_Front
 ShadowOff_InkOff_Front	ShadowOn_InkOff_Front
+ShadowOff_InkOff	SCROLL
+KAZAN	SCROLL_KAZAN
+ShadowOff_InkOff	XYSCROLL
+KAZAN	XYSCROLL_KAZAN

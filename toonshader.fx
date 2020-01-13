@@ -14,7 +14,9 @@ uniform matrix	view			: View;
 uniform matrix	proj			: Projection;
 
 const uniform matrix	LocalBoneMats[16];
+const uniform matrix	LocalBoneITMats[16];
 
+// per material (SubScript)
 cbuffer cb
 {
 	float Ambient;
@@ -25,12 +27,13 @@ cbuffer cb
 	float HighLight;
 	float HighLightBlend;
 	float HighLightPower;
-	float UVScroll;
+	//float UVScroll; // OBSOLETE
+	float TessFactor;
 
 	float FrontLightPower;
 	float BackLightPower;
-	float UVScrollX;
-	float UVScrollY;
+	float UVScrollX; // OBSOLETE
+	float UVScrollY; // OBSOLETE
 
 	float4 PenColor;
 	//float4 ShadowColor;
@@ -78,6 +81,18 @@ struct appdata
 	int4	BoneIdxs	:	TEXCOORD4;
 };
 
+struct cHSData
+{
+	float3	Position	: POSITION;
+	float2	UV			: TEXCOORD0;
+	float3	Normal		: TEXCOORD1;
+};
+
+struct cCPData
+{
+    float3 Position : BEZIERPOS;
+};
+
 struct cVertexData
 {
 	float4	Position	: SV_POSITION;
@@ -92,8 +107,9 @@ struct cVertexData2
 
 // functions
 
-void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float4 outpos, out float3 outnor )
+void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float3 outpos, out float3 outnor )
 {
+#if 0
 	float4 ipos		=	float4( position, 1 );
 	float4 inor		=	float4( normal, 0 );
 
@@ -102,70 +118,97 @@ void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs,
 		LocalBoneMats[idxs.z] * weights.z +
 		LocalBoneMats[idxs.w] * weights.w;
 
-	float4 pos		=	mul( ipos, mat );
-	float4 nor		=	mul( inor, mat );
+	float4x4 itmat = LocalBoneITMats[idxs.x] * weights.x +
+		LocalBoneITMats[idxs.y] * weights.y +
+		LocalBoneITMats[idxs.z] * weights.z +
+		LocalBoneITMats[idxs.w] * weights.w;
 
-	outpos		=	float4( pos.xyz, 1 );
-	outnor		=	normalize( nor.xyz );
+	float4 pos		=	mul( ipos, mat );
+	float4 nor		=	mul( inor, itmat );
+
+	outpos		=	pos.xyz;
+	outnor		=	nor.xyz;
+#endif
+
+	float4 ipos		=	float4( position, 1 );
+	float3 inor		=	normal;
+
+	float4x4 mat = LocalBoneMats[idxs.x] * weights.x +
+		LocalBoneMats[idxs.y] * weights.y +
+		LocalBoneMats[idxs.z] * weights.z +
+		LocalBoneMats[idxs.w] * weights.w;
+
+	float4x4 itmat = LocalBoneITMats[idxs.x] * weights.x +
+		LocalBoneITMats[idxs.y] * weights.y +
+		LocalBoneITMats[idxs.z] * weights.z +
+		LocalBoneITMats[idxs.w] * weights.w;
+
+	float4 pos		=	mul( ipos, mat );
+	float3 nor		=	mul( inor, (float3x3)itmat );
+
+	outpos		=	pos.xyz;
+	outnor		=	nor;
 }
 
 // vertex shader
 
-cVertexData2 cInkVS( appdata IN )
+cHSData cInkVS( appdata IN )
 {
-	cVertexData2 OUT;
-	float4	pos;
+	cHSData OUT;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	pos = float4( pos.xyz + ( nor * Thickness ), 1 );
-	OUT.Position = mul( pos, wvp );
+	OUT.Position = pos;
+	OUT.UV	= float2( 0, 0 );
+	OUT.Normal	= nor;
 
 	return OUT;
 }
 
-cVertexData2 cBackInkVS( appdata IN )
+cHSData cBackInkVS( appdata IN )
 {
-	cVertexData2 OUT;
-	float4	pos;
+	cHSData OUT;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	pos = float4( pos.xyz + ( nor *-Thickness ), 1 );
-	OUT.Position = mul( pos, wvp );
+	OUT.Position = pos;
+	OUT.UV	= float2( 0, 0 );
+	OUT.Normal	= nor;
 
 	return OUT;
 }
 
-cVertexData cMainVS( appdata IN )
+cHSData cMainVS( appdata IN )
 {
-	cVertexData OUT;
-	float4	pos;
+	cHSData OUT;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( pos, wvp );
+	OUT.Position	= pos;
 	OUT.UV		= IN.UV;
 	OUT.Normal	= nor;
 
 	return OUT;
 }
 
-cVertexData cMainVS_viewnormal( appdata IN )
+cHSData cMainVS_viewnormal( appdata IN )
 {
-	cVertexData OUT;
-	float4	pos;
+	cHSData OUT;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( pos, wvp );
+	OUT.Position	= pos;
 	OUT.UV		= IN.UV;
 	// TODO: ViewNormal
-	OUT.Normal	= normalize( mul( float4( nor, 0 ), view ).xyz );
+	OUT.Normal	= mul( float4( nor, 0 ), view ).xyz;
 
 	return OUT;
 }
@@ -173,27 +216,28 @@ cVertexData cMainVS_viewnormal( appdata IN )
 cVertexData cMainVS_UVSCR( appdata IN )
 {
 	cVertexData OUT;
-	float4	pos;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( pos, wvp );
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xy;
 	OUT.Normal	= nor;
 
 	return OUT;
 }
 
+#if 0
 cVertexData cMainVS_XScroll( appdata IN )
 {
 	cVertexData OUT;
-	float4	pos;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( pos, wvp );
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScroll, 0 );
 	OUT.Normal	= nor;
 
@@ -203,17 +247,18 @@ cVertexData cMainVS_XScroll( appdata IN )
 cVertexData cMainVS_XYScroll( appdata IN )
 {
 	cVertexData OUT;
-	float4	pos;
+	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= mul( pos, wvp );
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScrollX, UVScrollY );
 	OUT.Normal	= nor;
 
 	return OUT;
 }
+#endif
 
 // hull shader
 
@@ -221,59 +266,55 @@ struct PatchTess
 {
     float EdgeTess[3] : SV_TessFactor;
     float InsideTess : SV_InsideTessFactor;
+	float2	UV[3]			: TEXCOORD0;
+	float3	Normal[3]		: TEXCOORD3;
 };
 
-PatchTess PatchHS(InputPatch<cVertexData, 3> patch,
+// Triangle patch constant func (executes once for each patch)
+PatchTess PatchHS(InputPatch<cHSData, 3> patch,
                   uint patchID : SV_PrimitiveID)
 {
-    PatchTess pt;
-	
-	// Average tess factors along edges, and pick an edge tess factor for 
-	// the interior tessellation.  It is important to do the tess factor
-	// calculation based on the edge properties so that edges shared by 
-	// more than one triangle will have the same tessellation factor.  
-	// Otherwise, gaps can appear.
-    pt.EdgeTess[0] = 2.0f;//0.5f * (patch[1].TessFactor + patch[2].TessFactor);
-    pt.EdgeTess[1] = 2.0f;//0.5f * (patch[2].TessFactor + patch[0].TessFactor);
-    pt.EdgeTess[2] = 2.0f;//0.5f * (patch[0].TessFactor + patch[1].TessFactor);
-    pt.InsideTess = pt.EdgeTess[0];
-	
-    return pt;
-}
+    PatchTess pt = (PatchTess)0;
 
-PatchTess PatchInkHS(InputPatch<cVertexData2, 3> patch,
-                  uint patchID : SV_PrimitiveID)
-{
-    PatchTess pt;
+	float3 rawEdgeFactors;
+	rawEdgeFactors[0] = TessFactor;
+	rawEdgeFactors[1] = TessFactor;
+	rawEdgeFactors[2] = TessFactor;
+
+    float3 roundedEdgeTessFactors;
+    float roundedInsideTessFactor, unroundedInsideTessFactor;
+    ProcessTriTessFactorsMax(rawEdgeFactors, 1.0, roundedEdgeTessFactors, roundedInsideTessFactor, unroundedInsideTessFactor);
+
+    // Apply the edge and inside tessellation factors
+    pt.EdgeTess[0] = roundedEdgeTessFactors.x;
+    pt.EdgeTess[1] = roundedEdgeTessFactors.y;
+    pt.EdgeTess[2] = roundedEdgeTessFactors.z;
+    pt.InsideTess = roundedInsideTessFactor;
 	
-	// Average tess factors along edges, and pick an edge tess factor for 
-	// the interior tessellation.  It is important to do the tess factor
-	// calculation based on the edge properties so that edges shared by 
-	// more than one triangle will have the same tessellation factor.  
-	// Otherwise, gaps can appear.
-    pt.EdgeTess[0] = 2.0f;//0.5f * (patch[1].TessFactor + patch[2].TessFactor);
-    pt.EdgeTess[1] = 2.0f;//0.5f * (patch[2].TessFactor + patch[0].TessFactor);
-    pt.EdgeTess[2] = 2.0f;//0.5f * (patch[0].TessFactor + patch[1].TessFactor);
-    pt.InsideTess = pt.EdgeTess[0];
-	
+	pt.UV[0] = patch[0].UV;
+	pt.UV[1] = patch[1].UV;
+	pt.UV[2] = patch[2].UV;
+
+	pt.Normal[0] = patch[0].Normal;
+	pt.Normal[1] = patch[1].Normal;
+	pt.Normal[2] = patch[2].Normal;
+
     return pt;
 }
 
 [domain("tri")]
-[partitioning("fractional_odd")]
+[partitioning("integer")]
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("PatchHS")]
-cVertexData cMainHS(InputPatch<cVertexData, 3> p,
+cCPData cTriEqualHS(InputPatch<cHSData, 3> p,
            uint i : SV_OutputControlPointID,
            uint patchId : SV_PrimitiveID)
 {
-    cVertexData hout;
+    cCPData hout;
 	
 	// Pass through shader.
     hout.Position = p[i].Position;
-    hout.Normal = p[i].Normal;
-    hout.UV = p[i].UV;
 	
     return hout;
 }
@@ -282,12 +323,12 @@ cVertexData cMainHS(InputPatch<cVertexData, 3> p,
 [partitioning("fractional_odd")]
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(3)]
-[patchconstantfunc("PatchInkHS")]
-cVertexData2 cInkHS(InputPatch<cVertexData2, 3> p,
+[patchconstantfunc("PatchHS")]
+cCPData cTriFractionalOddHS(InputPatch<cHSData, 3> p,
            uint i : SV_OutputControlPointID,
            uint patchId : SV_PrimitiveID)
 {
-    cVertexData2 hout;
+    cCPData hout;
 	
 	// Pass through shader.
     hout.Position = p[i].Position;
@@ -297,49 +338,134 @@ cVertexData2 cInkHS(InputPatch<cVertexData2, 3> p,
 
 // domain shader
 
-// The domain shader is called for every vertex created by the tessellator.  
-// It is like the vertex shader after tessellation.
+float2 BarycentricInterpolate(float2 v0, float2 v1, float2 v2, float3 barycentric)
+{
+    return barycentric.z * v0 + barycentric.x * v1 + barycentric.y * v2;
+}
+
+float2 BarycentricInterpolate(float2 v[3], float3 barycentric)
+{
+    return BarycentricInterpolate(v[0], v[1], v[2], barycentric);
+}
+
+float3 BarycentricInterpolate(float3 v0, float3 v1, float3 v2, float3 barycentric)
+{
+    return barycentric.z * v0 + barycentric.x * v1 + barycentric.y * v2;
+}
+
+float3 BarycentricInterpolate(float3 v[3], float3 barycentric)
+{
+    return BarycentricInterpolate(v[0], v[1], v[2], barycentric);
+}
+
+float4 BarycentricInterpolate(float4 v0, float4 v1, float4 v2, float3 barycentric)
+{
+    return barycentric.z * v0 + barycentric.x * v1 + barycentric.y * v2;
+}
+
+float4 BarycentricInterpolate(float4 v[3], float3 barycentric)
+{
+    return BarycentricInterpolate(v[0], v[1], v[2], barycentric);
+}
+
+// Orthogonal projection on to plane
+// Where v1 is a point on the plane, and n is the plane normal
+// v2_projected = v2 - dot(v2-v1, n) * n;
+float3 ProjectOntoPlane(float3 planeNormal, float3 planePoint, float3 pointToProject)
+{
+    return pointToProject - dot(pointToProject - planePoint, planeNormal) * planeNormal;
+}
+
+// Phong Tessellation Domain Shader
+// This domain shader applies control point weighting to the barycentric coords produced by the fixed function tessellator stage
 [domain("tri")]
 cVertexData cMainDS(PatchTess patchTess,
              float3 bary : SV_DomainLocation,
-             const OutputPatch<cVertexData, 3> tri)
+             const OutputPatch<cCPData, 3> tri)
 {
     cVertexData dout;
-	
+
 	// Interpolate patch attributes to generated vertices.
-    dout.Position =
-		bary.x * tri[0].Position +
-		bary.y * tri[1].Position +
-		bary.z * tri[2].Position;
+    float3 position = BarycentricInterpolate(tri[0].Position, tri[1].Position, tri[2].Position, bary);
 
-    dout.Normal =
-		bary.x * tri[0].Normal +
-		bary.y * tri[1].Normal +
-		bary.z * tri[2].Normal;
+#if 1
+    // BEGIN Phong Tessellation
+    // Orthogonal projection in the tangent planes
+    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
 
-    dout.UV =
-		bary.x * tri[0].UV +
-		bary.y * tri[1].UV +
-		bary.z * tri[2].UV;
-	
-	// Interpolating normal can unnormalize it, so normalize it.
-    dout.Normal = normalize(dout.Normal);
-	
+    // Interpolate the projected points
+    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    // END Phong Tessellation
+#endif
+    
+    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+
+	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
+
+    dout.UV = BarycentricInterpolate(patchTess.UV, bary);
+	dout.Normal = normalize( normal );
+
     return dout;
 }
 
 [domain("tri")]
 cVertexData2 cInkDS(PatchTess patchTess,
              float3 bary : SV_DomainLocation,
-             const OutputPatch<cVertexData2, 3> tri)
+             const OutputPatch<cCPData, 3> tri)
 {
     cVertexData2 dout;
-	
+
 	// Interpolate patch attributes to generated vertices.
-    dout.Position =
-		bary.x * tri[0].Position +
-		bary.y * tri[1].Position +
-		bary.z * tri[2].Position;
+    float3 position = BarycentricInterpolate(tri[0].Position, tri[1].Position, tri[2].Position, bary);
+
+#if 1
+    // BEGIN Phong Tessellation
+    // Orthogonal projection in the tangent planes
+    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
+
+    // Interpolate the projected points
+    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    // END Phong Tessellation
+#endif
+    
+    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+	position += normalize( normal ) * Thickness;
+
+	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
+
+    return dout;
+}
+
+[domain("tri")]
+cVertexData2 cBackInkDS(PatchTess patchTess,
+             float3 bary : SV_DomainLocation,
+             const OutputPatch<cCPData, 3> tri)
+{
+    cVertexData2 dout;
+
+	// Interpolate patch attributes to generated vertices.
+    float3 position = BarycentricInterpolate(tri[0].Position, tri[1].Position, tri[2].Position, bary);
+
+#if 1
+    // BEGIN Phong Tessellation
+    // Orthogonal projection in the tangent planes
+    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
+
+    // Interpolate the projected points
+    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    // END Phong Tessellation
+#endif
+    
+    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+	position -= normalize( normal ) * Thickness;
+
+	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
 
     return dout;
 }
@@ -635,7 +761,7 @@ technique11 NZAT_ShadowOff_InkOff
 		SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
 	}
 }
@@ -648,7 +774,7 @@ technique11 NCZAT_ShadowOff_InkOff
 		SetRasterizerState( NoCullingState );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
 	}
 }
@@ -661,7 +787,7 @@ technique11 KAZAN
 		SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
 	}
 }
@@ -683,7 +809,7 @@ technique11 WASHOUT
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_viewnormal() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainWashOut_viewnormal() ));
 	}
 }
@@ -816,6 +942,8 @@ technique11 AllAmb_ShadowOff_InkOff_BHL
 #include "bhl-pass.fx"
 }
 
+#if 0
+// OBSOLETE
 technique11 SCROLL
 {
 	pass Main
@@ -826,6 +954,7 @@ technique11 SCROLL
 	}
 }
 
+// OBSOLETE
 technique11 XYSCROLL
 {
 	pass Main
@@ -835,6 +964,7 @@ technique11 XYSCROLL
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
+#endif
 
 technique11 ShadowOff_Front
 {
@@ -844,7 +974,7 @@ technique11 ShadowOff_Front
 		SetDepthStencilState( NoDepthState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
@@ -856,7 +986,7 @@ technique11 ShadowOff_InkOff_Front
 		SetDepthStencilState( NoDepthState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
@@ -867,9 +997,7 @@ technique11 ShadowOn_eyedotn
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetHullShader(CompileShader( PROFILE_HS, cMainHS() ));
-		SetDomainShader(CompileShader( PROFILE_DS, cMainDS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS_eyedotn() ));
 	}
 }
@@ -880,9 +1008,7 @@ technique11 AllAmb_ShadowOn_eyedotn
 	pass Main
 	{
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
-		SetHullShader(CompileShader( PROFILE_HS, cMainHS() ));
-		SetDomainShader(CompileShader( PROFILE_DS, cMainDS() ));
-		SetGeometryShader( NULL );
+#include "tessellation.fx"
 		SetPixelShader(CompileShader( PROFILE_PS, cMainPS3_eyedotn() ));
 	}
 }
