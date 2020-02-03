@@ -400,11 +400,15 @@ cVertexData cMainDS(PatchTess patchTess,
     // END Phong Tessellation
 #endif
     
+    // Interpolate array of UV coordinates
+	float2 uv = BarycentricInterpolate(patchTess.UV, bary);
+    // Interpolate array of normals
     float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
 
+    // Transform world position to view-projection
 	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
 
-    dout.UV = BarycentricInterpolate(patchTess.UV, bary);
+    dout.UV = uv;
 	dout.Normal = normalize( normal );
 
     return dout;
@@ -432,9 +436,12 @@ cVertexData2 cInkDS(PatchTess patchTess,
     // END Phong Tessellation
 #endif
     
+    // Interpolate array of normals
     float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+
 	position += normalize( normal ) * Thickness;
 
+    // Transform world position to view-projection
 	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
 
     return dout;
@@ -462,9 +469,12 @@ cVertexData2 cBackInkDS(PatchTess patchTess,
     // END Phong Tessellation
 #endif
     
+    // Interpolate array of normals
     float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+
 	position -= normalize( normal ) * Thickness;
 
+    // Transform world position to view-projection
 	dout.Position = mul( mul( float4( position, 1 ), view ), proj );
 
     return dout;
