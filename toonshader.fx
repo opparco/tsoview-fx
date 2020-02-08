@@ -312,18 +312,17 @@ float4 BarycentricInterpolate(float4 v[3], float3 barycentric)
 // Orthogonal projection on to plane
 // Where v1 is a point on the plane, and n is the plane normal
 // v2_projected = v2 - dot(v2-v1, n) * n;
-float3 ProjectOntoPlane(float3 planeNormal, float3 planePoint, float3 pointToProject)
+float3 ProjectOntoPlane(float3 normal, float3 p1, float3 p2)
 {
-	// planeNormal has not been normalized.
-    return pointToProject - dot(pointToProject - planePoint, normalize(planeNormal)) * planeNormal;
+	// normal has not been normalized.
+	normal = normalize(normal);
+    return p2 - dot(p2 - p1, normal) * normal;
 }
 
 // Phong Tessellation Domain Shader
 // This domain shader applies control point weighting to the barycentric coords produced by the fixed function tessellator stage
 [domain("tri")]
-cVertexData cMainDS(PatchTess patchTess,
-             float3 bary : SV_DomainLocation,
-             const OutputPatch<cCPData, 3> tri)
+cVertexData cMainDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData dout;
 
@@ -338,7 +337,8 @@ cVertexData cMainDS(PatchTess patchTess,
     float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
-    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
+
     // END Phong Tessellation
 #endif
     
@@ -357,9 +357,7 @@ cVertexData cMainDS(PatchTess patchTess,
 }
 
 [domain("tri")]
-cVertexData2 cInkDS(PatchTess patchTess,
-             float3 bary : SV_DomainLocation,
-             const OutputPatch<cCPData, 3> tri)
+cVertexData2 cInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData2 dout;
 
@@ -374,7 +372,7 @@ cVertexData2 cInkDS(PatchTess patchTess,
     float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
-    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
     // END Phong Tessellation
 #endif
     
@@ -390,9 +388,7 @@ cVertexData2 cInkDS(PatchTess patchTess,
 }
 
 [domain("tri")]
-cVertexData2 cBackInkDS(PatchTess patchTess,
-             float3 bary : SV_DomainLocation,
-             const OutputPatch<cCPData, 3> tri)
+cVertexData2 cBackInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData2 dout;
 
@@ -407,7 +403,7 @@ cVertexData2 cBackInkDS(PatchTess patchTess,
     float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
-    position = BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary);
+    position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
     // END Phong Tessellation
 #endif
     
