@@ -27,7 +27,6 @@ cbuffer cb
 	float HighLight;
 	float HighLightBlend;
 	float HighLightPower;
-	//float UVScroll; // OBSOLETE
 	float TessFactor;
 
 	float FrontLightPower;
@@ -109,27 +108,6 @@ struct cVertexData2
 
 void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float3 outpos, out float3 outnor )
 {
-#if 0
-	float4 ipos		=	float4( position, 1 );
-	float4 inor		=	float4( normal, 0 );
-
-	float4x4 mat = LocalBoneMats[idxs.x] * weights.x +
-		LocalBoneMats[idxs.y] * weights.y +
-		LocalBoneMats[idxs.z] * weights.z +
-		LocalBoneMats[idxs.w] * weights.w;
-
-	float4x4 itmat = LocalBoneITMats[idxs.x] * weights.x +
-		LocalBoneITMats[idxs.y] * weights.y +
-		LocalBoneITMats[idxs.z] * weights.z +
-		LocalBoneITMats[idxs.w] * weights.w;
-
-	float4 pos		=	mul( ipos, mat );
-	float4 nor		=	mul( inor, itmat );
-
-	outpos		=	pos.xyz;
-	outnor		=	nor.xyz;
-#endif
-
 	float4 ipos		=	float4( position, 1 );
 	float3 inor		=	normal;
 
@@ -228,38 +206,6 @@ cVertexData cMainVS_UVSCR( appdata IN )
 	return OUT;
 }
 
-#if 0
-cVertexData cMainVS_XScroll( appdata IN )
-{
-	cVertexData OUT;
-	float3	pos;
-	float3	nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-	OUT.Position	= mul( float4( pos, 1 ), wvp );
-	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScroll, 0 );
-	OUT.Normal	= nor;
-
-	return OUT;
-}
-
-cVertexData cMainVS_XYScroll( appdata IN )
-{
-	cVertexData OUT;
-	float3	pos;
-	float3	nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-	OUT.Position	= mul( float4( pos, 1 ), wvp );
-	OUT.UV		= IN.UV + UVSCR.xx * float2( UVScrollX, UVScrollY );
-	OUT.Normal	= nor;
-
-	return OUT;
-}
-#endif
-
 // hull shader
 
 struct PatchTess
@@ -271,8 +217,7 @@ struct PatchTess
 };
 
 // Triangle patch constant func (executes once for each patch)
-PatchTess PatchHS(InputPatch<cHSData, 3> patch,
-                  uint patchID : SV_PrimitiveID)
+PatchTess PatchHS(InputPatch<cHSData, 3> patch, uint patchID : SV_PrimitiveID)
 {
     PatchTess pt = (PatchTess)0;
 
@@ -307,9 +252,7 @@ PatchTess PatchHS(InputPatch<cHSData, 3> patch,
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("PatchHS")]
-cCPData cTriEqualHS(InputPatch<cHSData, 3> p,
-           uint i : SV_OutputControlPointID,
-           uint patchId : SV_PrimitiveID)
+cCPData cTriEqualHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
 {
     cCPData hout;
 	
@@ -324,9 +267,7 @@ cCPData cTriEqualHS(InputPatch<cHSData, 3> p,
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("PatchHS")]
-cCPData cTriFractionalOddHS(InputPatch<cHSData, 3> p,
-           uint i : SV_OutputControlPointID,
-           uint patchId : SV_PrimitiveID)
+cCPData cTriFractionalOddHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
 {
     cCPData hout;
 	
@@ -952,30 +893,6 @@ technique11 AllAmb_ShadowOff_InkOff_BHL
 #include "amb-pass.fx"
 #include "bhl-pass.fx"
 }
-
-#if 0
-// OBSOLETE
-technique11 SCROLL
-{
-	pass Main
-	{
-		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_XScroll() ));
-		SetGeometryShader( NULL );
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
-	}
-}
-
-// OBSOLETE
-technique11 XYSCROLL
-{
-	pass Main
-	{
-		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_XYScroll() ));
-		SetGeometryShader( NULL );
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
-	}
-}
-#endif
 
 technique11 ShadowOff_Front
 {
