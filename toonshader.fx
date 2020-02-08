@@ -185,8 +185,7 @@ cHSData cMainVS_viewnormal( appdata IN )
 
 	OUT.Position	= pos;
 	OUT.UV		= IN.UV;
-	// TODO: ViewNormal
-	OUT.Normal	= mul( float4( nor, 0 ), view ).xyz;
+	OUT.Normal	= mul( nor, (float3x3)view );
 
 	return OUT;
 }
