@@ -138,7 +138,7 @@ cHSData cInkVS( appdata IN )
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position = pos;
+	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
 
@@ -153,7 +153,7 @@ cHSData cBackInkVS( appdata IN )
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position = pos;
+	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
 
@@ -168,7 +168,7 @@ cHSData cMainVS( appdata IN )
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= pos;
+	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV		= IN.UV;
 	OUT.Normal	= nor;
 
@@ -183,7 +183,7 @@ cHSData cMainVS_viewnormal( appdata IN )
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
-	OUT.Position	= pos;
+	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV		= IN.UV;
 	OUT.Normal	= mul( nor, (float3x3)view );
 
