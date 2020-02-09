@@ -16,6 +16,8 @@ uniform matrix	proj			: Projection;
 const uniform matrix	LocalBoneMats[16];
 const uniform matrix	LocalBoneITMats[16];
 
+static const float ReferenceAlpha = 8.0/256.0;
+
 // per material (SubScript)
 cbuffer cb
 {
@@ -104,6 +106,8 @@ struct cVertexData2
 	float4	Position	: SV_POSITION;
 };
 
+// constants
+
 // functions
 
 void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs, out float3 outpos, out float3 outnor )
@@ -130,62 +134,120 @@ void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs,
 
 // vertex shader
 
-cHSData cInkVS( appdata IN )
+#ifdef USE_TESSELLATION
+cHSData
+#else
+cVertexData2
+#endif
+cInkVS( appdata IN )
 {
+#ifdef USE_TESSELLATION
 	cHSData OUT;
+#else
+	cVertexData2 OUT;
+#endif
 	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
+#ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
+#else
+	pos += normalize(nor) * Thickness;
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
+#endif
 
 	return OUT;
 }
 
-cHSData cBackInkVS( appdata IN )
+#ifdef USE_TESSELLATION
+cHSData
+#else
+cVertexData2
+#endif
+cBackInkVS( appdata IN )
 {
+#ifdef USE_TESSELLATION
 	cHSData OUT;
+#else
+	cVertexData2 OUT;
+#endif
 	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
+#ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
+#else
+	pos -= normalize(nor) * Thickness;
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
+#endif
 
 	return OUT;
 }
 
-cHSData cMainVS( appdata IN )
+#ifdef USE_TESSELLATION
+cHSData
+#else
+cVertexData
+#endif
+cMainVS( appdata IN )
 {
+#ifdef USE_TESSELLATION
 	cHSData OUT;
+#else
+	cVertexData OUT;
+#endif
 	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
+#ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV		= IN.UV;
 	OUT.Normal	= nor;
+#else
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
+	OUT.UV		= IN.UV;
+	OUT.Normal	= normalize(nor);
+#endif
 
 	return OUT;
 }
 
-cHSData cMainVS_viewnormal( appdata IN )
+#ifdef USE_TESSELLATION
+cHSData
+#else
+cVertexData
+#endif
+cMainVS_viewnormal( appdata IN )
 {
+#ifdef USE_TESSELLATION
 	cHSData OUT;
+#else
+	cVertexData OUT;
+#endif
 	float3	pos;
 	float3	nor;
 
 	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
 
+#ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV		= IN.UV;
 	OUT.Normal	= mul( nor, (float3x3)view );
+#else
+	OUT.Position	= mul( float4( pos, 1 ), wvp );
+	OUT.UV		= IN.UV;
+	OUT.Normal	= mul( normalize(nor), (float3x3)view );
+#endif
 
 	return OUT;
 }
@@ -200,7 +262,7 @@ cVertexData cMainVS_UVSCR( appdata IN )
 
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xy;
-	OUT.Normal	= nor;
+	OUT.Normal	= normalize(nor);
 
 	return OUT;
 }
@@ -248,7 +310,7 @@ PatchTess PatchHS(InputPatch<cHSData, 3> patch, uint patchID : SV_PrimitiveID)
 
 [domain("tri")]
 [partitioning("integer")]
-[outputtopology("triangle_ccw")]
+[outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("PatchHS")]
 cCPData cTriEqualHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
@@ -263,7 +325,7 @@ cCPData cTriEqualHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlPointID, 
 
 [domain("tri")]
 [partitioning("fractional_odd")]
-[outputtopology("triangle_ccw")]
+[outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("PatchHS")]
 cCPData cTriFractionalOddHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
@@ -412,7 +474,7 @@ cVertexData2 cBackInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, co
 	position -= normalize(normal) * Thickness;
 
     // Transform world position to view-projection
-	dout.Position = mul(mul(float4( position, 1), view), proj);
+	dout.Position = mul(mul(float4(position, 1), view), proj);
 
     return dout;
 }
@@ -437,7 +499,7 @@ float4 cMainPS( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 ); // old
 	//col += hl * HighLightBlend;
 
-	clip(col.a - 0.25f); // alpha test
+	clip(col.a - ReferenceAlpha); // alpha test
 	return float4( col.rgb, texcol.a );
 }
 
@@ -480,7 +542,7 @@ float4 cMainPS3( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 ); // old
 	//col += hl * HighLightBlend;
 
-	clip(col.a - 0.25f); // alpha test
+	clip(col.a - ReferenceAlpha); // alpha test
 	return float4( col.rgb, texcol.a );
 }
 
@@ -508,7 +570,7 @@ float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 // on InkState: alpha func ge
 float4 cInkPS( cVertexData2 IN ) : SV_TARGET
 {
-	clip(PenColor.a - 0.25f); // alpha test
+	clip(PenColor.a - ReferenceAlpha); // alpha test
 	return PenColor;
 }
 
@@ -582,7 +644,7 @@ float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 	float	thickness	=	1.0 / eyedotn;
 	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
 
-	clip(col.a - 0.25f); // alpha test
+	clip(col.a - ReferenceAlpha); // alpha test
 	return float4( col.rgb, alpha );
 }
 
@@ -608,7 +670,7 @@ float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
 	float	thickness	=	1.0 / eyedotn;
 	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
 
-	clip(col.a - 0.25f); // alpha test
+	clip(col.a - ReferenceAlpha); // alpha test
 	return float4( col.rgb, alpha );
 }
 
@@ -663,7 +725,7 @@ RasterizerState NoCullingState
 
 RasterizerState CcwState
 {
-	FrontCounterClockwise = false;
+	FrontCounterClockwise = true;
 };
 
 // techniques
