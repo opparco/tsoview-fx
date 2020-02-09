@@ -5,6 +5,10 @@
 #define PROFILE_DS ds_5_0
 #define PROFILE_PS ps_5_0
 
+// constants
+
+static const float ReferenceAlpha = 8.0/256.0;
+
 // variables
 
 uniform matrix	wld			: World;
@@ -15,8 +19,6 @@ uniform matrix	proj			: Projection;
 
 const uniform matrix	LocalBoneMats[16];
 const uniform matrix	LocalBoneITMats[16];
-
-static const float ReferenceAlpha = 8.0/256.0;
 
 // per material (SubScript)
 cbuffer cb
@@ -105,8 +107,6 @@ struct cVertexData2
 {
 	float4	Position	: SV_POSITION;
 };
-
-// constants
 
 // functions
 
