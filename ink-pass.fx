@@ -5,7 +5,7 @@
 
 		SetVertexShader(CompileShader( PROFILE_VS, cInkVS() ));
 #ifdef USE_TESSELLATION
-#include "select-hull.fx"
+#include "select-hull2.fx"
 		SetDomainShader(CompileShader( PROFILE_DS, cInkDS() ));
 		SetGeometryShader( NULL );
 #endif

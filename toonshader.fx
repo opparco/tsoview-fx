@@ -91,6 +91,12 @@ struct cHSData
 	float3	Normal		: TEXCOORD1;
 };
 
+struct cHSData2
+{
+	float3	Position	: POSITION;
+	float3	Normal		: TEXCOORD1;
+};
+
 struct cCPData
 {
     float3 Position : BEZIERPOS;
@@ -135,14 +141,14 @@ void calc_skindeform( float3 position, float3 normal, float4 weights, int4 idxs,
 // vertex shader
 
 #ifdef USE_TESSELLATION
-cHSData
+cHSData2
 #else
 cVertexData2
 #endif
 cInkVS( appdata IN )
 {
 #ifdef USE_TESSELLATION
-	cHSData OUT;
+	cHSData2 OUT;
 #else
 	cVertexData2 OUT;
 #endif
@@ -153,7 +159,6 @@ cInkVS( appdata IN )
 
 #ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
-	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
 #else
 	pos += normalize(nor) * Thickness;
@@ -164,14 +169,14 @@ cInkVS( appdata IN )
 }
 
 #ifdef USE_TESSELLATION
-cHSData
+cHSData2
 #else
 cVertexData2
 #endif
 cBackInkVS( appdata IN )
 {
 #ifdef USE_TESSELLATION
-	cHSData OUT;
+	cHSData2 OUT;
 #else
 	cVertexData2 OUT;
 #endif
@@ -182,7 +187,6 @@ cBackInkVS( appdata IN )
 
 #ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
-	OUT.UV	= float2( 0, 0 );
 	OUT.Normal	= nor;
 #else
 	pos -= normalize(nor) * Thickness;
@@ -269,7 +273,7 @@ cVertexData cMainVS_UVSCR( appdata IN )
 
 // hull shader
 
-struct PatchTess
+struct cPatchData
 {
     float EdgeTess[3] : SV_TessFactor;
     float InsideTess : SV_InsideTessFactor;
@@ -277,10 +281,17 @@ struct PatchTess
 	float3	Normal[3]		: TEXCOORD3;
 };
 
-// Triangle patch constant func (executes once for each patch)
-PatchTess PatchHS(InputPatch<cHSData, 3> patch, uint patchID : SV_PrimitiveID)
+struct cPatchData2
 {
-    PatchTess pt = (PatchTess)0;
+    float EdgeTess[3] : SV_TessFactor;
+    float InsideTess : SV_InsideTessFactor;
+	float3	Normal[3]		: TEXCOORD3;
+};
+
+// Triangle patch constant func (executes once for each patch)
+cPatchData PatchHS(InputPatch<cHSData, 3> patch, uint patchID : SV_PrimitiveID)
+{
+    cPatchData pt;
 
 	float3 rawEdgeFactors;
 	rawEdgeFactors[0] = TessFactor;
@@ -338,6 +349,62 @@ cCPData cTriFractionalOddHS(InputPatch<cHSData, 3> p, uint i : SV_OutputControlP
     return hout;
 }
 
+cPatchData2 PatchHS2(InputPatch<cHSData2, 3> patch, uint patchID : SV_PrimitiveID)
+{
+    cPatchData2 pt;
+
+	float3 rawEdgeFactors;
+	rawEdgeFactors[0] = TessFactor;
+	rawEdgeFactors[1] = TessFactor;
+	rawEdgeFactors[2] = TessFactor;
+
+    float3 roundedEdgeTessFactors;
+    float roundedInsideTessFactor, unroundedInsideTessFactor;
+    ProcessTriTessFactorsMax(rawEdgeFactors, 1.0, roundedEdgeTessFactors, roundedInsideTessFactor, unroundedInsideTessFactor);
+
+    // Apply the edge and inside tessellation factors
+    pt.EdgeTess[0] = roundedEdgeTessFactors.x;
+    pt.EdgeTess[1] = roundedEdgeTessFactors.y;
+    pt.EdgeTess[2] = roundedEdgeTessFactors.z;
+    pt.InsideTess = roundedInsideTessFactor;
+	
+	pt.Normal[0] = patch[0].Normal;
+	pt.Normal[1] = patch[1].Normal;
+	pt.Normal[2] = patch[2].Normal;
+
+    return pt;
+}
+
+[domain("tri")]
+[partitioning("integer")]
+[outputtopology("triangle_cw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchHS2")]
+cCPData cTriEqualHS2(InputPatch<cHSData2, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
+{
+    cCPData hout;
+	
+	// Pass through shader.
+    hout.Position = p[i].Position;
+	
+    return hout;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_cw")]
+[outputcontrolpoints(3)]
+[patchconstantfunc("PatchHS2")]
+cCPData cTriFractionalOddHS2(InputPatch<cHSData2, 3> p, uint i : SV_OutputControlPointID, uint patchId : SV_PrimitiveID)
+{
+    cCPData hout;
+	
+	// Pass through shader.
+    hout.Position = p[i].Position;
+	
+    return hout;
+}
+
 // domain shader
 
 float2 BarycentricInterpolate(float2 v0, float2 v1, float2 v2, float3 barycentric)
@@ -383,7 +450,7 @@ float3 ProjectOntoPlane(float3 normal, float3 p1, float3 p2)
 // Phong Tessellation Domain Shader
 // This domain shader applies control point weighting to the barycentric coords produced by the fixed function tessellator stage
 [domain("tri")]
-cVertexData cMainDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
+cVertexData cMainDS(cPatchData patch, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData dout;
 
@@ -393,9 +460,9 @@ cVertexData cMainDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 #if 1
     // BEGIN Phong Tessellation
     // Orthogonal projection in the tangent planes
-    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
-    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
-    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
+    float3 posProjectedU = ProjectOntoPlane(patch.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patch.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patch.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
     position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
@@ -404,9 +471,9 @@ cVertexData cMainDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 #endif
     
     // Interpolate array of UV coordinates
-	float2 uv = BarycentricInterpolate(patchTess.UV, bary);
+	float2 uv = BarycentricInterpolate(patch.UV, bary);
     // Interpolate array of normals
-    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+    float3 normal = BarycentricInterpolate(patch.Normal, bary);
 
     // Transform world position to view-projection
 	dout.Position = mul(mul(float4(position, 1), view), proj);
@@ -418,7 +485,7 @@ cVertexData cMainDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 }
 
 [domain("tri")]
-cVertexData2 cInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
+cVertexData2 cInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData2 dout;
 
@@ -428,9 +495,9 @@ cVertexData2 cInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 #if 1
     // BEGIN Phong Tessellation
     // Orthogonal projection in the tangent planes
-    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
-    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
-    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
+    float3 posProjectedU = ProjectOntoPlane(patch.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patch.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patch.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
     position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
@@ -438,7 +505,7 @@ cVertexData2 cInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 #endif
     
     // Interpolate array of normals
-    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+    float3 normal = BarycentricInterpolate(patch.Normal, bary);
 
 	position += normalize(normal) * Thickness;
 
@@ -449,7 +516,7 @@ cVertexData2 cInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const 
 }
 
 [domain("tri")]
-cVertexData2 cBackInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
+cVertexData2 cBackInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, const OutputPatch<cCPData, 3> tri)
 {
     cVertexData2 dout;
 
@@ -459,9 +526,9 @@ cVertexData2 cBackInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, co
 #if 1
     // BEGIN Phong Tessellation
     // Orthogonal projection in the tangent planes
-    float3 posProjectedU = ProjectOntoPlane(patchTess.Normal[0], tri[0].Position, position);
-    float3 posProjectedV = ProjectOntoPlane(patchTess.Normal[1], tri[1].Position, position);
-    float3 posProjectedW = ProjectOntoPlane(patchTess.Normal[2], tri[2].Position, position);
+    float3 posProjectedU = ProjectOntoPlane(patch.Normal[0], tri[0].Position, position);
+    float3 posProjectedV = ProjectOntoPlane(patch.Normal[1], tri[1].Position, position);
+    float3 posProjectedW = ProjectOntoPlane(patch.Normal[2], tri[2].Position, position);
 
     // Interpolate the projected points
     position = lerp(position, BarycentricInterpolate(posProjectedU, posProjectedV, posProjectedW, bary), 0.5);
@@ -469,7 +536,7 @@ cVertexData2 cBackInkDS(PatchTess patchTess, float3 bary : SV_DomainLocation, co
 #endif
     
     // Interpolate array of normals
-    float3 normal = BarycentricInterpolate(patchTess.Normal, bary);
+    float3 normal = BarycentricInterpolate(patch.Normal, bary);
 
 	position -= normalize(normal) * Thickness;
 
