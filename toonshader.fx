@@ -8,6 +8,7 @@
 // constants
 
 static const float ReferenceAlpha = 0.25;
+static const float HohoAlpha = 0.40;
 
 // variables
 
@@ -558,6 +559,16 @@ inline	float	calc_hdotn( float3 normal )
 }
 
 // (default)
+// on InkState: alpha func ge
+float4 cInkPS( cVertexData2 IN ) : SV_TARGET
+{
+	float alpha = PenColor.a;
+	clip( alpha - ReferenceAlpha ); // alpha test
+
+	return PenColor;
+}
+
+// (default)
 // on DefaultState: alpha func ge
 float4 cMainPS( cVertexData IN ) : SV_TARGET
 {
@@ -606,6 +617,33 @@ float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 );
 
 	float alpha = texcol.a;
+	//clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
+}
+
+// HOHO
+// on NatState: alpha func always
+float4 cHohoPS( cVertexData IN ) : SV_TARGET
+{
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
+	float	hp		 = pow( hp0, HighLightPower );
+
+	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
+	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
+	float4	hl		 = float4( hp, hp, hp, 1.0 );
+
+	float4	col;
+	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
+	col += hl * ( HighLightBlend * 0.0025 );
+
+	float alpha = texcol.a * HohoAlpha;
 	//clip( alpha - ReferenceAlpha ); // alpha test
 	col.a = alpha;
 	return col;
@@ -663,15 +701,6 @@ float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 	//clip( alpha - ReferenceAlpha ); // alpha test
 	col.a = alpha;
 	return col;
-}
-
-// on InkState: alpha func ge
-float4 cInkPS( cVertexData2 IN ) : SV_TARGET
-{
-	float alpha = PenColor.a;
-	clip( alpha - ReferenceAlpha ); // alpha test
-
-	return PenColor;
 }
 
 // _BHL
@@ -870,6 +899,16 @@ technique11 NAT_ShadowOff_InkOff
 technique11 ShadowOff_InkOff
 {
 #include "default-pass.fx"
+}
+
+technique11 HOHO
+{
+	pass Main
+	{
+		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
+#include "tessellation.fx"
+		SetPixelShader(CompileShader( PROFILE_PS, cHohoPS() ));
+	}
 }
 
 technique11 NZ_ShadowOff

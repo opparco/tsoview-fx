@@ -4,7 +4,6 @@ NAT_ShadowOff_InkOff	NAT_ShadowOn_InkOff
 ShadowOff_InkOff	ShadowOn_InkOff
 NZ_ShadowOff	NZ_ShadowOn
 NZ_ShadowOff_InkOff	NZ_ShadowOn_InkOff
-NZAT_ShadowOff_InkOff	HOHO
 NZAT_ShadowOff_InkOff	ZAMEN0
 NZAT_ShadowOff_InkOff	ZAMEN1
 NZAT_ShadowOff_InkOff	ZAMEN2
