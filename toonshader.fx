@@ -657,8 +657,7 @@ float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
 	float alpha = texcol.a;
 	//clip( alpha - ReferenceAlpha ); // alpha test
