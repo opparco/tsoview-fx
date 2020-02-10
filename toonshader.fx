@@ -13,10 +13,12 @@ static const float HohoAlpha = 0.40;
 // variables
 
 uniform matrix	wld			: World;
-uniform	matrix	wv			: WorldView;
+uniform	matrix	wv			: WorldView; // not used
 uniform matrix	wvp			: WorldViewProjection;
-uniform matrix	view			: View;
-uniform matrix	proj			: Projection;
+uniform matrix	view		: View;
+uniform matrix	proj		: Projection; // not used
+uniform matrix	vp			: ViewProjection;
+uniform matrix	wit			: WorldInverseTranspose;
 
 const uniform matrix	LocalBoneMats[16];
 const uniform matrix	LocalBoneITMats[16];
@@ -160,7 +162,7 @@ cInkVS( appdata IN )
 
 #ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
-	OUT.Normal	= nor;
+	OUT.Normal	= mul( nor, (float3x3)wit );
 #else
 	pos += normalize(nor) * Thickness;
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
@@ -188,7 +190,7 @@ cBackInkVS( appdata IN )
 
 #ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
-	OUT.Normal	= nor;
+	OUT.Normal	= mul( nor, (float3x3)wit );
 #else
 	pos -= normalize(nor) * Thickness;
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
@@ -217,41 +219,11 @@ cMainVS( appdata IN )
 #ifdef USE_TESSELLATION
 	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
 	OUT.UV		= IN.UV;
-	OUT.Normal	= nor;
+	OUT.Normal	= mul( nor, (float3x3)wit );
 #else
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV;
-	OUT.Normal	= nor;
-#endif
-
-	return OUT;
-}
-
-#ifdef USE_TESSELLATION
-cHSData
-#else
-cVertexData
-#endif
-cMainVS_viewnormal( appdata IN )
-{
-#ifdef USE_TESSELLATION
-	cHSData OUT;
-#else
-	cVertexData OUT;
-#endif
-	float3	pos;
-	float3	nor;
-
-	calc_skindeform( IN.Position, IN.Normal, IN.VWeights, IN.BoneIdxs, pos, nor );
-
-#ifdef USE_TESSELLATION
-	OUT.Position	= mul( float4( pos, 1 ), wld ).xyz;
-	OUT.UV		= IN.UV;
-	OUT.Normal	= mul( nor, (float3x3)view );
-#else
-	OUT.Position	= mul( float4( pos, 1 ), wvp );
-	OUT.UV		= IN.UV;
-	OUT.Normal	= mul( nor, (float3x3)view );
+	OUT.Normal	= mul( nor, (float3x3)wit );
 #endif
 
 	return OUT;
@@ -267,7 +239,7 @@ cVertexData cMainVS_UVSCR( appdata IN )
 
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xy;
-	OUT.Normal	= nor;
+	OUT.Normal	= mul( nor, (float3x3)wit );
 
 	return OUT;
 }
@@ -477,7 +449,7 @@ cVertexData cMainDS(cPatchData patch, float3 bary : SV_DomainLocation, const Out
     float3 normal = BarycentricInterpolate(patch.Normal, bary);
 
     // Transform world position to view-projection
-	dout.Position = mul(mul(float4(position, 1), view), proj);
+	dout.Position = mul(float4(position, 1), vp);
 
     dout.UV = uv;
 	dout.Normal = normal;
@@ -511,7 +483,7 @@ cVertexData2 cInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, const Ou
 	position += normalize(normal) * Thickness;
 
     // Transform world position to view-projection
-	dout.Position = mul(mul(float4(position, 1), view), proj);
+	dout.Position = mul(float4(position, 1), vp);
 
     return dout;
 }
@@ -542,7 +514,7 @@ cVertexData2 cBackInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, cons
 	position -= normalize(normal) * Thickness;
 
     // Transform world position to view-projection
-	dout.Position = mul(mul(float4(position, 1), view), proj);
+	dout.Position = mul(float4(position, 1), vp);
 
     return dout;
 }
@@ -551,11 +523,11 @@ cVertexData2 cBackInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, cons
 
 inline	float	calc_hdotn( float3 normal )
 {
-	float3	esnormal	=	mul( normal, (float3x3)view );  //カメラ空間での法線
-	float3	eslight		=	mul( LightDirForced.xyz, (float3x3)view );  //カメラ空間での光線
+	float3	viewnor	=	mul( normal, (float3x3)view );  //カメラ空間での法線
+	float3	viewlight		=	mul( LightDirForced.xyz, (float3x3)view );  //カメラ空間での光線
 	const float3	eyedir		=	{0, 0, -1};
-	float3	halfvec		=	normalize( eyedir + eslight );
-	return	dot( esnormal, -halfvec );
+	float3	halfvec		=	normalize( eyedir + viewlight );
+	return	dot( viewnor, -halfvec );
 }
 
 // (default)
@@ -716,11 +688,10 @@ float4 cBHLMainPS( cVertexData IN ) : SV_TARGET
 	//float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	//float	hp		 = pow( hp0, HighLightPower );
 
-	// TODO:
-	float3 viewNor	= mul( normal, (float3x3)view );
+	float3 viewnor	= mul( normal, (float3x3)view );
 
 	const float3	eyedir_opp		=	{ 0, 0, +1 };
-	float	ldotn2		 = dot( viewNor, eyedir_opp );
+	float	ldotn2		 = dot( viewnor, eyedir_opp );
 	float	lp2		 = saturate( ( ldotn2 * 0.5   ) + ( Ambient   * 0.01 ) );
 	//float	hp02	 = saturate( ( hdotn2 * 0.708 ) + ( HighLight * 0.01 ) );
 	//float	hp2		 = pow( hp02, HighLightPower );
@@ -734,15 +705,15 @@ float4 cBHLMainPS( cVertexData IN ) : SV_TARGET
 
 // WASHOUT
 // on NatState: alpha func always
-float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
+float4 cMainWashOut( cVertexData IN ) : SV_TARGET
 {
 	float3 normal = normalize( IN.Normal );
+	float3 viewnor	= mul( normal, (float3x3)view );
 
-	float	ldotn		=	dot( normal, -LightDirForced.xyz );
-	float	hdotn		=	calc_hdotn( normal );
+	float	ldotn		=	dot( viewnor, -LightDirForced.xyz ); // ! normal
 
 	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
-	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
+	float	hp0		 = saturate( ( ldotn * 0.708 ) + ( HighLight * 0.01 ) ); // ! hdotn
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
@@ -758,9 +729,9 @@ float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
 
 inline	float	calc_eyedotn( float3 normal )
 {
-	float3 esnormal = mul( normal, (float3x3)view );
+	float3 viewnor = mul( normal, (float3x3)view );
 	const float3 eyedir = { 0, 0, -1 };
-	return max( 0.01, dot( esnormal, -eyedir ) );
+	return max( 0.01, dot( viewnor, -eyedir ) );
 }
 
 // _eyedotn
@@ -976,9 +947,9 @@ technique11 WASHOUT
 {
 	pass Main
 	{
-		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_viewnormal() ));
+		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
 #include "tessellation.fx"
-		SetPixelShader(CompileShader( PROFILE_PS, cMainWashOut_viewnormal() ));
+		SetPixelShader(CompileShader( PROFILE_PS, cMainWashOut() ));
 	}
 }
 
