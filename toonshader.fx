@@ -220,7 +220,7 @@ cMainVS( appdata IN )
 #else
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV;
-	OUT.Normal	= normalize(nor);
+	OUT.Normal	= nor;
 #endif
 
 	return OUT;
@@ -250,7 +250,7 @@ cMainVS_viewnormal( appdata IN )
 #else
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV;
-	OUT.Normal	= mul( normalize(nor), (float3x3)view );
+	OUT.Normal	= mul( nor, (float3x3)view );
 #endif
 
 	return OUT;
@@ -266,7 +266,7 @@ cVertexData cMainVS_UVSCR( appdata IN )
 
 	OUT.Position	= mul( float4( pos, 1 ), wvp );
 	OUT.UV		= IN.UV + UVSCR.xy;
-	OUT.Normal	= normalize(nor);
+	OUT.Normal	= nor;
 
 	return OUT;
 }
@@ -479,7 +479,7 @@ cVertexData cMainDS(cPatchData patch, float3 bary : SV_DomainLocation, const Out
 	dout.Position = mul(mul(float4(position, 1), view), proj);
 
     dout.UV = uv;
-	dout.Normal = normalize(normal);
+	dout.Normal = normal;
 
     return dout;
 }
@@ -548,13 +548,26 @@ cVertexData2 cBackInkDS(cPatchData2 patch, float3 bary : SV_DomainLocation, cons
 
 // pixel shader
 
+inline	float	calc_hdotn( float3 normal )
+{
+	float3	esnormal	=	mul( normal, (float3x3)view );  //カメラ空間での法線
+	float3	eslight		=	mul( LightDirForced.xyz, (float3x3)view );  //カメラ空間での光線
+	const float3	eyedir		=	{0, 0, -1};
+	float3	halfvec		=	normalize( eyedir + eslight );
+	return	dot( esnormal, -halfvec );
+}
+
 // (default)
 // on DefaultState: alpha func ge
 float4 cMainPS( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.6   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
@@ -563,20 +576,25 @@ float4 cMainPS( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
-	clip(col.a - ReferenceAlpha); // alpha test
-	return float4( col.rgb, texcol.a );
+	float alpha = texcol.a;
+	clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 // NAT_
 // on NatState: alpha func always
 float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.6   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
@@ -585,19 +603,25 @@ float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
-	return float4( col.rgb, texcol.a );
+	float alpha = texcol.a;
+	//clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 // AllAmb_
 // on DefaultState: alpha func ge
 float4 cMainPS3( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
@@ -606,20 +630,25 @@ float4 cMainPS3( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
-	clip(col.a - ReferenceAlpha); // alpha test
-	return float4( col.rgb, texcol.a );
+	float alpha = texcol.a;
+	clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 // NAT_AllAmb_
 // on NatState: alpha func always
 float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
@@ -631,28 +660,41 @@ float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
 	col += hl * ( HighLightBlend * 0.0025 ); // old
 	//col += hl * HighLightBlend;
 
-	return float4( col.rgb, texcol.a );
+	float alpha = texcol.a;
+	//clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 // on InkState: alpha func ge
 float4 cInkPS( cVertexData2 IN ) : SV_TARGET
 {
-	clip(PenColor.a - ReferenceAlpha); // alpha test
+	float alpha = PenColor.a;
+	clip( alpha - ReferenceAlpha ); // alpha test
+
 	return PenColor;
 }
 
 // _BHL
 // on NatState: alpha func always
-float4 cBHLMainPS_viewnormal( cVertexData IN ) : SV_TARGET
+float4 cBHLMainPS( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	//float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	//float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	//float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	//float	hp		 = pow( hp0, HighLightPower );
 
-	float	L2		 = dot( float4( IN.Normal, 0 ), float4(0,0,1,0) );
-	float	lp2		 = min( 1.0, max( 0.0, ( L2 * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	//float	hp02		 = min( 1.0, max( 0.0, ( L2 * 0.708 ) + ( HighLight * 0.01 ) ) );
+	// TODO:
+	float3 viewNor	= mul( normal, (float3x3)view );
+
+	const float3	eyedir_opp		=	{ 0, 0, +1 };
+	float	ldotn2		 = dot( viewNor, eyedir_opp );
+	float	lp2		 = saturate( ( ldotn2 * 0.5   ) + ( Ambient   * 0.01 ) );
+	//float	hp02	 = saturate( ( hdotn2 * 0.708 ) + ( HighLight * 0.01 ) );
 	//float	hp2		 = pow( hp02, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.9 ) );
@@ -666,10 +708,14 @@ float4 cBHLMainPS_viewnormal( cVertexData IN ) : SV_TARGET
 // on NatState: alpha func always
 float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
 {
-	float	L		=	dot( float4( IN.Normal, 0 ), float4(0,0,1,0) );
-	float	lp		=	min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		=	min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
-	float	hp		=	pow( hp0, HighLightPower );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
+	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
 	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
@@ -682,20 +728,24 @@ float4 cMainWashOut_viewnormal( cVertexData IN ) : SV_TARGET
 	return float4( col.rgb, shadecol.a );
 }
 
-inline	float	calc_eyedotn( float4 normal )
+inline	float	calc_eyedotn( float3 normal )
 {
-	float4	esnormal	=	mul( normal, view );
-	float4	eyedir		=	{0, 0, -1, 0};
-	return	max( 0.01, dot(esnormal, -eyedir) );
+	float3 esnormal = mul( normal, (float3x3)view );
+	const float3 eyedir = { 0, 0, -1 };
+	return max( 0.01, dot( esnormal, -eyedir ) );
 }
 
 // _eyedotn
 // on DefaultState: alpha func ge
 float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.6   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.6   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
@@ -704,24 +754,28 @@ float4 cMainPS_eyedotn( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
-	float	eyedotn		=	calc_eyedotn( float4( IN.Normal, 0 ) );
+	float	eyedotn		=	calc_eyedotn( normal );
 	float	thickness	=	1.0 / eyedotn;
-	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
+	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness );
 
-	clip(col.a - ReferenceAlpha); // alpha test
-	return float4( col.rgb, alpha );
+	clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 // AllAmb_ _eyedotn
 // on DefaultState: alpha func ge
 float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
 {
-	float	L		 = dot( float4( IN.Normal, 0 ), -LightDirForced );
-	float	lp		 = min( 1.0, max( 0.0, ( L * 0.5   ) + ( Ambient   * 0.01 ) ) );
-	float	hp0		 = min( 1.0, max( 0.0, ( L * 0.708 ) + ( HighLight * 0.01 ) ) );
+	float3 normal = normalize( IN.Normal );
+
+	float	ldotn		=	dot( normal, -LightDirForced.xyz );
+	float	hdotn		=	calc_hdotn( normal );
+
+	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
+	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
 	float	hp		 = pow( hp0, HighLightPower );
 
 	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
@@ -730,15 +784,15 @@ float4 cMainPS3_eyedotn( cVertexData IN ) : SV_TARGET
 
 	float4	col;
 	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 ); // old
-	//col += hl * HighLightBlend;
+	col += hl * ( HighLightBlend * 0.0025 );
 
-	float	eyedotn		=	calc_eyedotn( float4( IN.Normal, 0 ) );
+	float	eyedotn		=	calc_eyedotn( normal );
 	float	thickness	=	1.0 / eyedotn;
-	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness);
+	float	alpha		=	1.0 - pow( abs( 1.0 - texcol.a ) , thickness );
 
-	clip(col.a - ReferenceAlpha); // alpha test
-	return float4( col.rgb, alpha );
+	clip( alpha - ReferenceAlpha ); // alpha test
+	col.a = alpha;
+	return col;
 }
 
 #include "hlmap.fx"
