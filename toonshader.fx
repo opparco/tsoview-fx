@@ -7,7 +7,7 @@
 
 // constants
 
-static const float ReferenceAlpha = 8.0/256.0;
+static const float ReferenceAlpha = 0.25;
 
 // variables
 
