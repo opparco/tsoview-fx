@@ -7,7 +7,7 @@
 
 // constants
 
-static const float ReferenceAlpha = 0.25;
+//static const float ReferenceAlpha = 0.25;
 static const float HohoAlpha = 0.40;
 
 // variables
@@ -48,6 +48,15 @@ cbuffer cb
 	float4 FrontLight;
 	float4 BackLight;
 };
+
+// per pass
+cbuffer cb_per_pass
+{
+	float ReferenceAlpha;
+	float p1;
+	float p2;
+	float p3;
+}
 
 uniform float4 LightDirForced : Direction;
 uniform float4 UVSCR;
@@ -567,33 +576,6 @@ float4 cMainPS( cVertexData IN ) : SV_TARGET
 	return col;
 }
 
-// NAT_
-// on NatState: alpha func always
-float4 cMainPSnAT( cVertexData IN ) : SV_TARGET
-{
-	float3 normal = normalize( IN.Normal );
-
-	float	ldotn		=	dot( normal, -LightDirForced.xyz );
-	float	hdotn		=	calc_hdotn( normal );
-
-	float	lp		 = saturate( ( ldotn * 0.6   ) + ( Ambient   * 0.01 ) );
-	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
-	float	hp		 = pow( hp0, HighLightPower );
-
-	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.5 ) );
-	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
-	float4	hl		 = float4( hp, hp, hp, 1.0 );
-
-	float4	col;
-	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 );
-
-	float alpha = texcol.a;
-	//clip( alpha - ReferenceAlpha ); // alpha test
-	col.a = alpha;
-	return col;
-}
-
 // HOHO
 // on NatState: alpha func always
 float4 cHohoPS( cVertexData IN ) : SV_TARGET
@@ -644,33 +626,6 @@ float4 cMainPS3( cVertexData IN ) : SV_TARGET
 
 	float alpha = texcol.a;
 	clip( alpha - ReferenceAlpha ); // alpha test
-	col.a = alpha;
-	return col;
-}
-
-// NAT_AllAmb_
-// on NatState: alpha func always
-float4 cMainPS3nAT( cVertexData IN ) : SV_TARGET
-{
-	float3 normal = normalize( IN.Normal );
-
-	float	ldotn		=	dot( normal, -LightDirForced.xyz );
-	float	hdotn		=	calc_hdotn( normal );
-
-	float	lp		 = saturate( ( ldotn * 0.5   ) + ( Ambient   * 0.01 ) );
-	float	hp0		 = saturate( ( hdotn * 0.708 ) + ( HighLight * 0.01 ) );
-	float	hp		 = pow( hp0, HighLightPower );
-
-	float4	shadecol = ShadeTex_texture.Sample( ShadeTex, float2( lp, 0.1 ) );
-	float4	texcol   = ColorTex_texture.Sample( ColorTex, IN.UV  );
-	float4	hl		 = float4( hp, hp, hp, 1.0 );
-
-	float4	col;
-	col = ( texcol * ( ColorBlend * 0.1 ) ) * ( shadecol * ( ShadeBlend * 0.1 ) );
-	col += hl * ( HighLightBlend * 0.0025 );
-
-	float alpha = texcol.a;
-	//clip( alpha - ReferenceAlpha ); // alpha test
 	col.a = alpha;
 	return col;
 }
@@ -896,50 +851,54 @@ technique11 NZ_ShadowOff_InkOff
 technique11 NZAT_ShadowOff_InkOff
 {
 	pass Main
+	< float ReferenceAlpha = 0.0; >
 	{
 		SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
 #include "tessellation.fx"
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
 
 technique11 NCZAT_ShadowOff_InkOff
 {
 	pass Main
+	< float ReferenceAlpha = 0.0; >
 	{
 		SetDepthStencilState( NoDepthWriteState, 0 );
 		SetRasterizerState( NoCullingState );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
 #include "tessellation.fx"
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
 
 technique11 KAZAN
 {
 	pass Main
+	< float ReferenceAlpha = 0.0; >
 	{
 		SetBlendState( KazanState, float4( 0.0f, 0.0f, 0.0f, 0.0f ), 0xFFFFFFFF );
 		SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS() ));
 #include "tessellation.fx"
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
 
 technique11 AURORA
 {
 	pass Main
+	< float ReferenceAlpha = 0.0; >
 	{
 		SetDepthStencilState( NoDepthWriteState, 0 );
 
 		SetVertexShader(CompileShader( PROFILE_VS, cMainVS_UVSCR() ));
 		SetGeometryShader( NULL );
-		SetPixelShader(CompileShader( PROFILE_PS, cMainPSnAT() ));
+		SetPixelShader(CompileShader( PROFILE_PS, cMainPS() ));
 	}
 }
 
