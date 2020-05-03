@@ -14,6 +14,11 @@ struct cHLMapData
 
 // functions
 
+inline float3 neg_y(float3 v)
+{
+	return float3(v.x, -v.y, v.z);
+}
+
 // vertex shader
 
 #ifdef USE_TESSELLATION
@@ -39,8 +44,8 @@ cHLMapVSB( appdata IN )
 #else
 	OUT.Position		=	mul( float4( pos, 1 ), wvp );
 
-	float4 N		=	normalize( mul(float4(nor.x,-nor.y,nor.z,0), wld) );
-	float4 L	=	normalize( mul(float4(nor.xyz,0), wvp) );
+	float4 N	=	normalize( mul( float4( neg_y(nor), 0 ), wld ) );
+	float4 L	=	normalize( mul( float4( nor, 0 ), wvp ) );
 
 	OUT.Color		=	BackLight * ( BackLightPower + dot(N, L)*(1-0.3f) * 2 );
 #endif
@@ -71,8 +76,8 @@ cHLMapVSF( appdata IN )
 #else
 	OUT.Position		=	mul( float4( pos, 1 ), wvp );
 
-	float4	N		=	normalize( mul(float4(nor.x,-nor.y,nor.z,0), wld) );
-	float4	L	=	normalize( mul(float4(nor.xyz,0), wvp) );
+	float4 N	=	normalize( mul( float4( neg_y(nor), 0 ), wld ) );
+	float4 L	=	normalize( mul( float4( nor, 0 ), wvp ) );
 
 	OUT.Color		=	FrontLight * ( FrontLightPower  + dot(N, -L)*(1-0.3f)*1.5);
 #endif
@@ -106,13 +111,13 @@ cHLMapData cHLMapDSB(cPatchData2 patch, float3 bary : SV_DomainLocation, const O
 #endif
 
     // Interpolate array of normals
-    float3 normal = BarycentricInterpolate(patch.Normal, bary);
+    float3 nor = BarycentricInterpolate(patch.Normal, bary);
 
     // Transform world position to view-projection
 	dout.Position = mul(float4(position, 1), vp);
 
-	float4 N		=	normalize( mul(float4(normal.x,-normal.y,normal.z,0), wld) );
-	float4 L	=	normalize( mul(float4(normal.xyz,0), wvp) );
+	float4 N	=	normalize( mul( float4( neg_y(nor), 0 ), wld ) );
+	float4 L	=	normalize( mul( float4( nor, 0 ), wvp ) );
 
 	dout.Color		=	BackLight * ( BackLightPower + dot(N, L)*(1-0.3f) * 2 );
 
@@ -141,13 +146,13 @@ cHLMapData cHLMapDSF(cPatchData2 patch, float3 bary : SV_DomainLocation, const O
 #endif
 
     // Interpolate array of normals
-    float3 normal = BarycentricInterpolate(patch.Normal, bary);
+    float3 nor = BarycentricInterpolate(patch.Normal, bary);
 
     // Transform world position to view-projection
 	dout.Position = mul(float4(position, 1), vp);
 
-	float4	N		=	normalize( mul(float4(normal.x,-normal.y,normal.z,0), wld) );
-	float4	L	=	normalize( mul(float4(normal.xyz,0), wvp) );
+	float4 N	=	normalize( mul( float4( neg_y(nor), 0 ), wld ) );
+	float4 L	=	normalize( mul( float4( nor, 0 ), wvp ) );
 
 	dout.Color		=	FrontLight * ( FrontLightPower  + dot(N, -L)*(1-0.3f)*1.5);
 
